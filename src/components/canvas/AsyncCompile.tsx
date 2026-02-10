@@ -8,7 +8,8 @@ interface AsyncCompileProps {
   id: string;
   onReady?: (id: string, isReady: boolean) => void;
   debug?: boolean;
-  uploadFrames?: number; // Configurable delay for GPU data transfer
+  uploadFrames?: number;
+  timeout?: number; // [!code ++] Added timeout prop
 }
 
 /**
@@ -20,7 +21,8 @@ export function AsyncCompile({
   id, 
   onReady, 
   debug = false,
-  uploadFrames = 3 
+  uploadFrames = 3,
+  timeout = 3000 // Default 3s timeout
 }: AsyncCompileProps) {
   // @ts-ignore - WebGPURenderer might have different types than WebGLRenderer
   const { gl, camera } = useThree();
@@ -47,13 +49,22 @@ export function AsyncCompile({
       log(`📦 [${id}] Stage 1: Starting async compilation...`);
       startTime.current = performance.now();
       
-      // Yield to main thread
-      await new Promise(resolve => setTimeout(resolve, 0));
+      // Increased delay from 0 to 500ms (Warm-up fix)
+      // This prevents the race condition where the renderer isn't ready on mobile deploy
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       if (groupRef.current && isMounted) {
         try {
+          // Promise.race to handle Driver Deadlock
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('TIMEOUT')), timeout)
+          );
+
           // @ts-ignore - compileAsync is specific to Three/WebGPU
-          await gl.compileAsync(groupRef.current, camera);
+          await Promise.race([
+            gl.compileAsync(groupRef.current, camera),
+            timeoutPromise
+          ]);
           
           if (isMounted) {
             const compileTime = (performance.now() - startTime.current).toFixed(1);
@@ -61,8 +72,14 @@ export function AsyncCompile({
             setStatus('compiled');
             enqueueUpload(id);
           }
-        } catch (error) {
-          console.error(`❌ [${id}] Compilation error:`, error);
+        } catch (error: any) {
+          // Handle timeout specifically
+          if (error.message === 'TIMEOUT') {
+             if(debug) console.warn(`⚠️ [${id}] Compilation timed out. Skipping optimization.`);
+          } else {
+             console.error(`❌ [${id}] Compilation error:`, error);
+          }
+          
           onReady?.(id, true); // Fallback to ready to prevent invisible objects
           setStatus('done');
           
@@ -82,7 +99,7 @@ export function AsyncCompile({
       onReady?.(id, false);
       removeUpload(id);
     };
-  }, [gl, camera, id, enqueueUpload, onReady, removeUpload, processNextUpload]);
+  }, [gl, camera, id, enqueueUpload, onReady, removeUpload, processNextUpload, timeout]);
 
   // Stage 2: Queue Management
   useEffect(() => {
