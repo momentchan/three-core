@@ -14,5 +14,7 @@ export * from './hooks/useKTX2Texture';
 
 export * from './input/InputSystem';
 
+export * from './utils/KTX2Preloader';
 export * from './utils/tsl/math';
 export * from './utils/tsl/color';
+
