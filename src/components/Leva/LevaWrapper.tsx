@@ -1,6 +1,7 @@
-import { useState, useEffect, ComponentProps } from 'react';
+import { useState, ComponentProps } from 'react';
 import { Leva } from 'leva';
 import { customTheme } from './theme';
+import { useShortcut } from '@core/hooks/useShortcut';
 
 interface LevaWrapperProps extends Omit<ComponentProps<typeof Leva>, 'hidden'> {
     initialHidden?: boolean;
@@ -10,18 +11,9 @@ export function LevaWrapper({ initialHidden = false, ...props }: LevaWrapperProp
 
     const [hidden, setHidden] = useState(initialHidden);
 
-    useEffect(() => {
-        const handleKeyPress = (event: KeyboardEvent) => {
-            if (event.code === 'KeyH') {
-                setHidden(prev => !prev);
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyPress);
-        return () => {
-            window.removeEventListener('keydown', handleKeyPress);
-        };
-    }, []);
+    useShortcut('h', () => {
+        setHidden(prev => !prev);
+    });
 
     return (
         <Leva theme={customTheme as any} hidden={hidden} {...props} />
