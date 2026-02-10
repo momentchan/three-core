@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three/webgpu';
-import { useUploadQueue } from '../hooks/useUploadQueue';
+import { useUploadQueue } from '../../hooks/useUploadQueue';
 
 interface AsyncCompileProps {
   children: React.ReactNode;
