@@ -9,7 +9,6 @@ interface AsyncCompileProps {
   onReady?: (id: string, isReady: boolean) => void;
   debug?: boolean;
   uploadFrames?: number;
-  timeout?: number; // [!code ++] Added timeout prop
 }
 
 /**
@@ -21,8 +20,7 @@ export function AsyncCompile({
   id, 
   onReady, 
   debug = false,
-  uploadFrames = 3,
-  timeout = 3000 // Default 3s timeout
+  uploadFrames = 3 
 }: AsyncCompileProps) {
   // @ts-ignore - WebGPURenderer might have different types than WebGLRenderer
   const { gl, camera } = useThree();
@@ -49,18 +47,17 @@ export function AsyncCompile({
       log(`📦 [${id}] Stage 1: Starting async compilation...`);
       startTime.current = performance.now();
       
-      // Increased delay from 0 to 500ms (Warm-up fix)
-      // This prevents the race condition where the renderer isn't ready on mobile deploy
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Removed the 500ms delay that caused desktop issues
+      await new Promise(resolve => setTimeout(resolve, 0));
       
       if (groupRef.current && isMounted) {
         try {
-          // Promise.race to handle Driver Deadlock
+          // Add Promise.race to catch Mobile GPU hangs
           const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('TIMEOUT')), timeout)
+            setTimeout(() => reject(new Error('TIMEOUT')), 3000)
           );
 
-          // @ts-ignore - compileAsync is specific to Three/WebGPU
+          // @ts-ignore
           await Promise.race([
             gl.compileAsync(groupRef.current, camera),
             timeoutPromise
@@ -73,17 +70,18 @@ export function AsyncCompile({
             enqueueUpload(id);
           }
         } catch (error: any) {
-          // Handle timeout specifically
+          // Handle the hang gracefully so loading screen finishes
           if (error.message === 'TIMEOUT') {
-             if(debug) console.warn(`⚠️ [${id}] Compilation timed out. Skipping optimization.`);
+             console.warn(`⚠️ [${id}] Compilation timed out. Skipping optimization.`);
           } else {
              console.error(`❌ [${id}] Compilation error:`, error);
           }
           
-          onReady?.(id, true); // Fallback to ready to prevent invisible objects
+          // Force Ready state so the game can start
+          onReady?.(id, true); 
           setStatus('done');
           
-          // Prevent deadlock
+          // Prevent queue deadlock if we crashed while holding the lock
           if (useUploadQueue.getState().currentUploader === id) {
             processNextUpload();
           }
@@ -99,7 +97,7 @@ export function AsyncCompile({
       onReady?.(id, false);
       removeUpload(id);
     };
-  }, [gl, camera, id, enqueueUpload, onReady, removeUpload, processNextUpload, timeout]);
+  }, [gl, camera, id, enqueueUpload, onReady, removeUpload, processNextUpload]);
 
   // Stage 2: Queue Management
   useEffect(() => {
