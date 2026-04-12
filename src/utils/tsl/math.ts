@@ -1,3 +1,4 @@
+import * as THREE from "three/webgpu";
 import {
   vec2,
   float,
@@ -84,3 +85,14 @@ export const easeOutExpo = (t: any) => {
   const x = t.clamp(0.0, 1.0);
   return float(1.0).sub(pow(float(2.0), x.mul(-10.0)));
 };
+
+/**
+ * Returns a random position inside a sphere of the given radius (centered at origin).
+ */
+export function getRandomVectorInsideSphere(radius: number): THREE.Vector3 {
+  const vector = new THREE.Vector3();
+  vector.set(Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1);
+  vector.normalize().multiplyScalar(Math.random() * radius);
+  return vector;
+}
+
