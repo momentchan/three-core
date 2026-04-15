@@ -12,6 +12,7 @@ export const sharedHandPosNode = instancedArray(MAX_INSTANCES, 'vec3');
 export const handStore = {
   landmarks: [] as any[][],
   worldLandmarks: [] as any[][],
+  video: null as HTMLVideoElement | null,
   videoWidth: 640,
   videoHeight: 480,
   mirror: true,
