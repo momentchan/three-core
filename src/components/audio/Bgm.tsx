@@ -9,6 +9,8 @@ interface Track {
   id: string;
   url: string;
   volume?: number;
+  /** Pitch offset in cents (negative = lower) */
+  detune?: number;
 }
 
 interface BgmProps {
@@ -38,6 +40,7 @@ export function Bgm({ listener, active, tracks, fadeDuration = 1 }: BgmProps) {
       
       audio.setBuffer(buffers[index]);
       audio.setLoop(true);
+      if (t.detune) audio.setDetune(t.detune);
       
       // 1. Attempt to set volume to 0 before playing
       audio.setVolume(0);

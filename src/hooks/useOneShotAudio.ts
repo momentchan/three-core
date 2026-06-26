@@ -7,6 +7,8 @@ const _listenerPos = new Vector3();
 interface PlayOptions {
     position?: Vector3;
     volume?: number;
+    /** Base pitch offset in cents (negative = lower) */
+    detune?: number;
     detuneRange?: number;
     refDistance?: number;
     maxDistance?: number;
@@ -22,6 +24,7 @@ export function useOneShotAudio(listener: AudioListener, filePaths: string[]) {
     const play = ({
         position,
         volume = 1,
+        detune = 0,
         detuneRange = 200,
         refDistance = 5,
         maxDistance = 100
@@ -59,8 +62,9 @@ export function useOneShotAudio(listener: AudioListener, filePaths: string[]) {
             
         source.buffer = buffer;
 
-        if (detuneRange > 0) {
-            source.detune.value = (Math.random() - 0.5) * detuneRange;
+        if (detune !== 0 || detuneRange > 0) {
+            const variation = detuneRange > 0 ? (Math.random() - 0.5) * detuneRange : 0;
+            source.detune.value = detune + variation;
         }
 
         gainNode.gain.setValueAtTime(finalVolume, context.currentTime);
