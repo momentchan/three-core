@@ -18,9 +18,8 @@ type TrackerSlot = {
   lastUpdateTime: number;
 };
 
-// Normalized view space (0–1). Mirrors Unity TrackerManager defaults.
 export const HAND_TRACKER_DISTANCE_THRESHOLD = 0.1;
-export const HAND_TRACKER_SMOOTH_FACTOR = 0.5;
+export const HAND_TRACKER_SMOOTH_FACTOR = 0.2;
 export const HAND_TRACKER_ALIVE_MS = 100;
 export const HAND_TRACKER_FADE_MS = 1000;
 
@@ -39,9 +38,7 @@ function lerp(a: number, b: number, t: number): number {
 }
 
 /**
- * Fixed-slot hand tracker inspired by Unity TrackerManager.
- * Assigns detections to the nearest slot within a distance threshold,
- * otherwise round-robins a free slot so indices stay stable across frames.
+ * Fixed-slot hand tracker. Nearest match within threshold, else round-robin.
  */
 export class HandTrackerPool {
   private readonly slots: TrackerSlot[];
