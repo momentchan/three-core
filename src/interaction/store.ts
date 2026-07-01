@@ -41,9 +41,6 @@ export type YoloHandFrame = {
   frameWidth?: number;
 
   frameHeight?: number;
-
-  mirror?: boolean;
-
 };
 
 
@@ -94,7 +91,6 @@ export const handStore = {
   videoHeight: 480,
 
   mirror: true,
-
 };
 
 
@@ -232,18 +228,8 @@ export function syncYoloDetectionsToStore(frame: YoloHandFrame | null): void {
   }
 
   if (frame.frameHeight) {
-
     handStore.videoHeight = frame.frameHeight;
-
   }
-
-  if (typeof frame.mirror === 'boolean') {
-
-    handStore.mirror = frame.mirror;
-
-  }
-
-
 
   handStore.yolo = {
 

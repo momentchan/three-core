@@ -16,7 +16,6 @@ import { parseYoloHandFrame, yoloDetectionsToLandmarks } from './adapter';
 
 export interface YoloWebSocketOptions {
   url?: string;
-  mirror?: boolean;
 }
 
 /**
@@ -24,7 +23,7 @@ export interface YoloWebSocketOptions {
  * (e.g. cansik/yolo-hand-detection) and maps them into handStore.hands.
  */
 export function useYoloHandTracking(options: YoloWebSocketOptions = {}) {
-  const { url = 'ws://127.0.0.1:8765', mirror = handStore.mirror } = options;
+  const { url = 'ws://127.0.0.1:8765' } = options;
 
   const targetLandmarks = useRef<HandLandmarks>([]);
   const smoothedLandmarks = useRef<HandLandmarks>([]);
@@ -56,7 +55,7 @@ export function useYoloHandTracking(options: YoloWebSocketOptions = {}) {
           }
 
           syncYoloDetectionsToStore(frame);
-          targetLandmarks.current = yoloDetectionsToLandmarks(frame, mirror);
+          targetLandmarks.current = yoloDetectionsToLandmarks(frame);
 
           if (targetLandmarks.current.length > 0) {
             lastUpdateTime.current = performance.now();
@@ -92,7 +91,7 @@ export function useYoloHandTracking(options: YoloWebSocketOptions = {}) {
       ws?.close();
       clearHandStore();
     };
-  }, [url, mirror]);
+  }, [url]);
 
   useFrame((_state, delta) => {
     const target = targetLandmarks.current;

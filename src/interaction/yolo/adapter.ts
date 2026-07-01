@@ -131,14 +131,12 @@ export function parseYoloHandFrame(payload: unknown): YoloHandFrame | null {
     asNumber(message.frameHeight) ??
     asNumber(message.height) ??
     480;
-  const mirror =
-    typeof message.mirror === 'boolean' ? message.mirror : undefined;
 
   const rawDetections =
     message.detections ??
     message.hands ??
     message.results ??
-  (Array.isArray(payload) ? payload : null);
+    (Array.isArray(payload) ? payload : null);
 
   if (!Array.isArray(rawDetections)) {
     return null;
@@ -165,21 +163,16 @@ export function parseYoloHandFrame(payload: unknown): YoloHandFrame | null {
     detections,
     frameWidth,
     frameHeight,
-    mirror,
   };
 }
 
 /**
- * Convert YOLO bounding boxes into the single-point layout used by handStore.hands.
- * Each hand becomes one normalized {x, y, z} point at the box center.
+ * Convert YOLO bounding boxes into handStore.hands layout.
+ * Expects coords already in view space (Python flips X before send).
  */
-export function yoloDetectionsToLandmarks(
-  frame: YoloHandFrame,
-  mirror = true,
-): HandLandmark[][] {
+export function yoloDetectionsToLandmarks(frame: YoloHandFrame): HandLandmark[][] {
   const frameWidth = frame.frameWidth ?? 640;
   const frameHeight = frame.frameHeight ?? 480;
-  const shouldMirror = frame.mirror ?? mirror;
 
   return frame.detections.map((detection) => {
     const centerX = (detection.xmin + detection.xmax) * 0.5;
@@ -187,7 +180,7 @@ export function yoloDetectionsToLandmarks(
 
     return [
       {
-        x: normalizePixelCoord(centerX, frameWidth, shouldMirror),
+        x: normalizePixelCoord(centerX, frameWidth, false),
         y: normalizePixelCoord(centerY, frameHeight, false),
         z: 0,
       },
