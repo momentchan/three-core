@@ -1,49 +1,260 @@
 // @core/interaction/store.ts
+
 import { instancedArray } from "three/tsl";
 
+
+
 export const MAX_HANDS = 10;
+
 export const POINTS_PER_HAND = 1; // use index 9
+
 export const MAX_INSTANCES = MAX_HANDS * POINTS_PER_HAND;
 
-// 1. Create a global TSL InstancedArray node
-// 這個節點會自動成為 Storage Buffer，Compute Shader 和 Render 都能直接讀取
-export const sharedHandPosNode = instancedArray(MAX_INSTANCES, 'vec3');
 
-export const handStore = {
-  landmarks: [] as any[][],
-  worldLandmarks: [] as any[][],
-  video: null as HTMLVideoElement | null,
-  videoWidth: 640,
-  videoHeight: 480,
-  mirror: true,
-  gestures: [] as string[]
+
+export type HandLandmark = { x: number; y: number; z: number };
+
+export type HandTrackingSource = 'none' | 'mediapipe' | 'yolo';
+
+
+
+export type YoloHandDetection = {
+
+  xmin: number;
+
+  ymin: number;
+
+  xmax: number;
+
+  ymax: number;
+
+  confidence: number;
+
 };
 
-/**
- * Reuse the same outer arrays on handStore to avoid churning references every frame.
- * Inner landmark arrays are the current MediaPipe result references (read before next detect).
- */
-export function syncHandResultsToStore(results: {
-  landmarks?: any[][];
-  worldLandmarks?: any[][];
-} | null): void {
-  const newLandmarks = results?.landmarks;
-  const newWorld = results?.worldLandmarks;
 
-  handStore.landmarks.length = 0;
-  handStore.worldLandmarks.length = 0;
+
+export type YoloHandFrame = {
+
+  detections: YoloHandDetection[];
+
+  frameWidth?: number;
+
+  frameHeight?: number;
+
+  mirror?: boolean;
+
+};
+
+
+
+export type MediaPipeHandState = {
+
+  worldLandmarks: HandLandmark[][];
+
+  gestures: string[];
+
+};
+
+
+
+export type YoloHandState = {
+
+  detections: YoloHandDetection[];
+
+  frameWidth: number;
+
+  frameHeight: number;
+
+};
+
+
+
+// Global TSL InstancedArray node.
+// Becomes a storage buffer readable by both compute shaders and the render pass.
+
+export const sharedHandPosNode = instancedArray(MAX_INSTANCES, 'vec3');
+
+
+
+export const handStore = {
+
+  source: 'none' as HandTrackingSource,
+
+  hands: [] as HandLandmark[][],
+
+  mediapipe: null as MediaPipeHandState | null,
+
+  yolo: null as YoloHandState | null,
+
+  video: null as HTMLVideoElement | null,
+
+  videoWidth: 640,
+
+  videoHeight: 480,
+
+  mirror: true,
+
+};
+
+
+
+export function clearHandStore(): void {
+
+  handStore.source = 'none';
+
+  handStore.hands = [];
+
+  handStore.mediapipe = null;
+
+  handStore.yolo = null;
+
+}
+
+
+
+export function applyMediaPipeHandsToStore(
+
+  hands: HandLandmark[][],
+
+  worldLandmarks: HandLandmark[][] = [],
+
+): void {
+
+  handStore.source = 'mediapipe';
+
+  handStore.hands = hands;
+
+  handStore.mediapipe = {
+
+    worldLandmarks,
+
+    gestures: handStore.mediapipe?.gestures ?? [],
+
+  };
+
+  handStore.yolo = null;
+
+}
+
+
+
+export function applyYoloHandsToStore(hands: HandLandmark[][]): void {
+
+  handStore.source = 'yolo';
+
+  handStore.hands = hands;
+
+  handStore.mediapipe = null;
+
+}
+
+
+
+/**
+
+ * Reuse the same outer arrays on handStore to avoid churning references every frame.
+
+ */
+
+export function syncMediaPipeResultsToStore(results: {
+
+  landmarks?: HandLandmark[][];
+
+  worldLandmarks?: HandLandmark[][];
+
+  gestures?: string[];
+
+} | null): void {
+
+  const newLandmarks = results?.landmarks;
+
+  const newWorld = results?.worldLandmarks ?? [];
+
+
 
   if (!newLandmarks?.length) {
+
     return;
+
   }
+
+
+
+  handStore.source = 'mediapipe';
+
+  handStore.yolo = null;
+
+
+
+  handStore.hands.length = 0;
 
   for (let i = 0; i < newLandmarks.length; i++) {
-    handStore.landmarks.push(newLandmarks[i]);
+
+    handStore.hands.push(newLandmarks[i]);
+
   }
 
-  if (newWorld?.length) {
-    for (let i = 0; i < newWorld.length; i++) {
-      handStore.worldLandmarks.push(newWorld[i]);
-    }
-  }
+
+
+  handStore.mediapipe = {
+
+    worldLandmarks: newWorld,
+
+    gestures: results?.gestures ?? handStore.mediapipe?.gestures ?? [],
+
+  };
+
 }
+
+
+
+export function syncYoloDetectionsToStore(frame: YoloHandFrame | null): void {
+
+  if (!frame?.detections?.length) {
+
+    return;
+
+  }
+
+
+
+  handStore.source = 'yolo';
+
+  handStore.mediapipe = null;
+
+
+
+  if (frame.frameWidth) {
+
+    handStore.videoWidth = frame.frameWidth;
+
+  }
+
+  if (frame.frameHeight) {
+
+    handStore.videoHeight = frame.frameHeight;
+
+  }
+
+  if (typeof frame.mirror === 'boolean') {
+
+    handStore.mirror = frame.mirror;
+
+  }
+
+
+
+  handStore.yolo = {
+
+    detections: frame.detections,
+
+    frameWidth: frame.frameWidth ?? handStore.videoWidth,
+
+    frameHeight: frame.frameHeight ?? handStore.videoHeight,
+
+  };
+
+}
+
+

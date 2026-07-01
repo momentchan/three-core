@@ -1,5 +1,5 @@
 import { HandLandmarker, FilesetResolver, DrawingUtils } from '@mediapipe/tasks-vision';
-import { CameraManager } from 'camera-manager';
+import { CameraManager } from './CameraManager';
 
 export interface HandLandmarkManagerOptions {
   modelType?: 'LITE' | 'FULL'; // Mapping concepts, although HandLandmarker usually uses a path
