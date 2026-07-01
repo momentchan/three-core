@@ -19,9 +19,9 @@ export function syncSharedHandPositions(bounds: AquariumBounds): void {
 
     if (active && point) {
       const { x, y } = normalizedHandToAquarium(point, bounds);
-      const strength =
-        handStore.yolo?.detections[i]?.confidence ??
-        (handStore.source === 'mediapipe' ? 1 : 1);
+      const slotRatio = handStore.yolo?.slotActiveRatio?.[i] ?? 1;
+      const confidence = handStore.yolo?.detections[i]?.confidence ?? 1;
+      const strength = slotRatio * confidence;
 
       array[offset] = x;
       array[offset + 1] = y;

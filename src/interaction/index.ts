@@ -1,8 +1,9 @@
 export * from './store';
 export * from './shared/smoothing';
+export * from './shared/handTracker';
 export * from './shared/handWorldPosition';
 export * from './shared/syncSharedHandPositions';
-// export * from './mediapipe/HandLandmarkManager';
+export * from './mediapipe/HandLandmarkManager';
 export * from './mediapipe/initMediaPipeHandTracking';
 export * from './mediapipe/useMediaPipeHandTracking';
 export * from './mediapipe/MediaPipeHandTracking';

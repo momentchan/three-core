@@ -1,16 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import {
-  HAND_TRACKING_ALIVE_MS,
-  HAND_TRACKING_SMOOTHING,
-  smoothTowardInPlace,
-  type HandLandmarks,
-} from '../shared/smoothing';
+  HandTrackerPool,
+  detectionsToTrackerInputs,
+} from '../shared/handTracker';
 import {
-  applyYoloHandsToStore,
+  applyYoloTrackedHandsToStore,
   clearHandStore,
-  handStore,
-  syncYoloDetectionsToStore,
+  type YoloHandFrame,
 } from '../store';
 import { parseYoloHandFrame, yoloDetectionsToLandmarks } from './adapter';
 
@@ -18,18 +15,19 @@ export interface YoloWebSocketOptions {
   url?: string;
 }
 
+const WS_STALE_MS = 500;
+
 /**
  * Receives YOLO hand-detection bounding boxes from a local Python backend
- * (e.g. cansik/yolo-hand-detection) and maps them into handStore.hands.
+ * and maps them into stable handStore slots via distance-based tracking.
  */
 export function useYoloHandTracking(options: YoloWebSocketOptions = {}) {
   const { url = 'ws://127.0.0.1:8765' } = options;
 
-  const targetLandmarks = useRef<HandLandmarks>([]);
-  const smoothedLandmarks = useRef<HandLandmarks>([]);
-
+  const trackerPool = useRef(new HandTrackerPool());
+  const lastFrame = useRef<YoloHandFrame | null>(null);
   const hasConnectedOnce = useRef(false);
-  const lastUpdateTime = useRef(0);
+  const lastWsTime = useRef(0);
 
   useEffect(() => {
     let disposed = false;
@@ -54,12 +52,8 @@ export function useYoloHandTracking(options: YoloWebSocketOptions = {}) {
             return;
           }
 
-          syncYoloDetectionsToStore(frame);
-          targetLandmarks.current = yoloDetectionsToLandmarks(frame);
-
-          if (targetLandmarks.current.length > 0) {
-            lastUpdateTime.current = performance.now();
-          }
+          lastFrame.current = frame;
+          lastWsTime.current = performance.now();
         } catch (err) {
           console.error('[YoloHandTracking] Error parsing WebSocket message:', err);
         }
@@ -89,25 +83,46 @@ export function useYoloHandTracking(options: YoloWebSocketOptions = {}) {
       disposed = true;
       clearTimeout(reconnectTimer);
       ws?.close();
+      trackerPool.current.reset();
+      lastFrame.current = null;
       clearHandStore();
     };
   }, [url]);
 
   useFrame((_state, delta) => {
-    const target = targetLandmarks.current;
-    const timedOut = performance.now() - lastUpdateTime.current > HAND_TRACKING_ALIVE_MS;
+    const now = performance.now();
+    const wsFresh = now - lastWsTime.current < WS_STALE_MS;
+    const frame = lastFrame.current;
 
-    if (target.length === 0 || timedOut) {
-      if (smoothedLandmarks.current.length !== 0) {
-        smoothedLandmarks.current.length = 0;
-        clearHandStore();
-      }
+    trackerPool.current.tickFade(now, delta);
+
+    if (wsFresh && frame) {
+      const landmarks = yoloDetectionsToLandmarks(frame);
+      const confidences = frame.detections.map((detection) => detection.confidence);
+      const inputs = detectionsToTrackerInputs(landmarks, confidences);
+      trackerPool.current.assignDetections(inputs, now, delta);
+
+      const output = trackerPool.current.toStoreOutput(
+        frame.frameWidth ?? 640,
+        frame.frameHeight ?? 480,
+      );
+
+      applyYoloTrackedHandsToStore(
+        output.hands,
+        output.detections,
+        output.slotActiveRatio,
+        {
+          frameWidth: frame.frameWidth ?? 640,
+          frameHeight: frame.frameHeight ?? 480,
+        },
+      );
       return;
     }
 
-    const alpha = 1 - Math.pow(HAND_TRACKING_SMOOTHING, delta * 60);
-
-    smoothTowardInPlace(smoothedLandmarks.current, target, alpha);
-    applyYoloHandsToStore(smoothedLandmarks.current);
+    if (!wsFresh) {
+      trackerPool.current.reset();
+      lastFrame.current = null;
+      clearHandStore();
+    }
   });
 }

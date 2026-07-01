@@ -59,6 +59,8 @@ export type YoloHandState = {
 
   detections: YoloHandDetection[];
 
+  slotActiveRatio: number[];
+
   frameWidth: number;
 
   frameHeight: number;
@@ -142,6 +144,44 @@ export function applyYoloHandsToStore(hands: HandLandmark[][]): void {
   handStore.hands = hands;
 
   handStore.mediapipe = null;
+
+}
+
+
+
+export function applyYoloTrackedHandsToStore(
+
+  hands: HandLandmark[][],
+
+  detections: YoloHandDetection[],
+
+  slotActiveRatio: number[],
+
+  frame: { frameWidth: number; frameHeight: number },
+
+): void {
+
+  handStore.source = 'yolo';
+
+  handStore.hands = hands;
+
+  handStore.mediapipe = null;
+
+  handStore.videoWidth = frame.frameWidth;
+
+  handStore.videoHeight = frame.frameHeight;
+
+  handStore.yolo = {
+
+    detections,
+
+    slotActiveRatio,
+
+    frameWidth: frame.frameWidth,
+
+    frameHeight: frame.frameHeight,
+
+  };
 
 }
 
@@ -234,6 +274,8 @@ export function syncYoloDetectionsToStore(frame: YoloHandFrame | null): void {
   handStore.yolo = {
 
     detections: frame.detections,
+
+    slotActiveRatio: frame.detections.map(() => 1),
 
     frameWidth: frame.frameWidth ?? handStore.videoWidth,
 
