@@ -1,8 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import {
   HandTrackerPool,
+  mergeHandTrackerParams,
   detectionsToTrackerInputs,
+  type HandTrackerParams,
 } from '../shared/handTracker';
 import {
   applyYoloTrackedHandsToStore,
@@ -11,8 +13,9 @@ import {
 } from '../store';
 import { parseYoloHandFrame, yoloDetectionsToLandmarks } from './adapter';
 
-export interface YoloWebSocketOptions {
+export interface YoloWebSocketOptions extends Partial<HandTrackerParams> {
   url?: string;
+  tracker?: Partial<HandTrackerParams>;
 }
 
 const WS_STALE_MS = 500;
@@ -22,12 +25,28 @@ const WS_STALE_MS = 500;
  * and maps them into stable handStore slots via distance-based tracking.
  */
 export function useYoloHandTracking(options: YoloWebSocketOptions = {}) {
-  const { url = 'ws://127.0.0.1:8765' } = options;
+  const {
+    url = 'ws://127.0.0.1:8765',
+    tracker,
+    smoothing,
+    matchThreshold,
+    aliveMs,
+    fadeMs,
+  } = options;
 
-  const trackerPool = useRef(new HandTrackerPool());
+  const trackerParams = useMemo(
+    () => mergeHandTrackerParams(tracker, { smoothing, matchThreshold, aliveMs, fadeMs }),
+    [tracker, smoothing, matchThreshold, aliveMs, fadeMs],
+  );
+
+  const trackerPool = useRef(new HandTrackerPool(undefined, trackerParams));
   const lastFrame = useRef<YoloHandFrame | null>(null);
   const hasConnectedOnce = useRef(false);
   const lastWsTime = useRef(0);
+
+  useLayoutEffect(() => {
+    trackerPool.current.setParams(trackerParams);
+  }, [trackerParams]);
 
   useEffect(() => {
     let disposed = false;
@@ -124,5 +143,5 @@ export function useYoloHandTracking(options: YoloWebSocketOptions = {}) {
       lastFrame.current = null;
       clearHandStore();
     }
-  });
+  }, -2);
 }

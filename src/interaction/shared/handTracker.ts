@@ -10,6 +10,39 @@ export type TrackerInput = {
   confidence: number;
 };
 
+export type HandTrackerParams = {
+  /** 0 = snappy, 1 = very smooth (more lag). */
+  smoothing: number;
+  matchThreshold: number;
+  aliveMs: number;
+  fadeMs: number;
+};
+
+export const defaultHandTrackerParams: HandTrackerParams = {
+  smoothing: 0.8,
+  matchThreshold: 0.1,
+  aliveMs: 100,
+  fadeMs: 1000,
+};
+
+/** Defaults → tracker object → flat prop overrides (only defined values). */
+export function mergeHandTrackerParams(
+  tracker?: Partial<HandTrackerParams>,
+  overrides?: Partial<HandTrackerParams>,
+): HandTrackerParams {
+  const merged = { ...defaultHandTrackerParams, ...tracker };
+  if (!overrides) {
+    return merged;
+  }
+  if (overrides.smoothing !== undefined) merged.smoothing = overrides.smoothing;
+  if (overrides.matchThreshold !== undefined) {
+    merged.matchThreshold = overrides.matchThreshold;
+  }
+  if (overrides.aliveMs !== undefined) merged.aliveMs = overrides.aliveMs;
+  if (overrides.fadeMs !== undefined) merged.fadeMs = overrides.fadeMs;
+  return merged;
+}
+
 type TrackerSlot = {
   pos: HandLandmark;
   confidence: number;
@@ -17,11 +50,6 @@ type TrackerSlot = {
   activeRatio: number;
   lastUpdateTime: number;
 };
-
-export const HAND_TRACKER_DISTANCE_THRESHOLD = 0.1;
-export const HAND_TRACKER_SMOOTH_FACTOR = 0.2;
-export const HAND_TRACKER_ALIVE_MS = 100;
-export const HAND_TRACKER_FADE_MS = 1000;
 
 function createSlot(): TrackerSlot {
   return {
@@ -42,13 +70,24 @@ function lerp(a: number, b: number, t: number): number {
  */
 export class HandTrackerPool {
   private readonly slots: TrackerSlot[];
+  private params: HandTrackerParams;
   private lastActiveIndex = 0;
 
-  constructor(size = MAX_HANDS) {
+  constructor(size = MAX_HANDS, params: Partial<HandTrackerParams> = {}) {
     this.slots = Array.from({ length: size }, createSlot);
+    this.params = { ...defaultHandTrackerParams, ...params };
+  }
+
+  setParams(params: Partial<HandTrackerParams>): void {
+    this.params = { ...this.params, ...params };
+  }
+
+  getParams(): HandTrackerParams {
+    return { ...this.params };
   }
 
   assignDetections(inputs: TrackerInput[], now: number, deltaSec: number): void {
+    const { matchThreshold } = this.params;
     const usedDetections = new Set<number>();
     const usedSlots = new Set<number>();
 
@@ -67,7 +106,7 @@ export class HandTrackerPool {
       if (usedDetections.has(di) || usedSlots.has(si)) {
         continue;
       }
-      if (dist >= HAND_TRACKER_DISTANCE_THRESHOLD) {
+      if (dist >= matchThreshold) {
         continue;
       }
 
@@ -98,10 +137,11 @@ export class HandTrackerPool {
   }
 
   tickFade(now: number, deltaSec: number): void {
-    const fadeStep = deltaSec / (HAND_TRACKER_FADE_MS / 1000);
+    const { aliveMs, fadeMs } = this.params;
+    const fadeStep = deltaSec / (fadeMs / 1000);
 
     for (const slot of this.slots) {
-      if (now - slot.lastUpdateTime > HAND_TRACKER_ALIVE_MS) {
+      if (now - slot.lastUpdateTime > aliveMs) {
         slot.active = false;
         slot.activeRatio = Math.max(0, slot.activeRatio - fadeStep);
       }
@@ -165,8 +205,9 @@ export class HandTrackerPool {
     now: number,
     deltaSec: number,
   ): void {
+    const { smoothing, fadeMs } = this.params;
     const slot = this.slots[slotIndex];
-    const t = HAND_TRACKER_SMOOTH_FACTOR;
+    const t = 1 - Math.min(Math.max(smoothing, 0), 0.98);
 
     slot.pos.x = lerp(slot.pos.x, input.x, t);
     slot.pos.y = lerp(slot.pos.y, input.y, t);
@@ -174,10 +215,7 @@ export class HandTrackerPool {
     slot.confidence = input.confidence;
     slot.active = true;
     slot.lastUpdateTime = now;
-    slot.activeRatio = Math.min(
-      1,
-      slot.activeRatio + deltaSec / (HAND_TRACKER_FADE_MS / 1000),
-    );
+    slot.activeRatio = Math.min(1, slot.activeRatio + deltaSec / (fadeMs / 1000));
   }
 }
 
