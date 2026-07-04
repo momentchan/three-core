@@ -20,3 +20,5 @@ export * from './utils/SpriteTextureArray';
 export * from './utils/tsl/math';
 export * from './utils/tsl/color';
 
+export * from './vat';
+
