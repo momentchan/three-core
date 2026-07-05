@@ -25,6 +25,7 @@ export {
   createVATSampleUV,
   sampleVATPosition,
   sampleVATNormal,
+  sampleVATNormalVarying,
 } from './tsl'
 
 export {

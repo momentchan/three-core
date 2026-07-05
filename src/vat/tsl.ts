@@ -9,6 +9,7 @@ import {
   texture,
   uniform,
   uv,
+  varying,
   vec2,
   vec3,
 } from 'three/tsl'
@@ -51,4 +52,21 @@ export function sampleVATNormal(
 ) {
   const rawNormal = texture(nrmTex, sampleUV)
   return decodeVatNormal(rawNormal, compressNormal)
+}
+
+/**
+ * Sample and decode the VAT normal in the vertex stage.
+ *
+ * VAT UVs are per-vertex texel lookups, so the fetch must happen in the
+ * vertex shader; fragment-stage sampling reads arbitrary texels between
+ * vertex rows. Use this (or wrap your own sampling chain in varying())
+ * when feeding normalNode/colorNode. Returns the interpolated local-space
+ * normal.
+ */
+export function sampleVATNormalVarying(
+  nrmTex: THREE.Texture,
+  sampleUV: any,
+  compressNormal = true
+) {
+  return varying(sampleVATNormal(nrmTex, sampleUV, compressNormal))
 }
