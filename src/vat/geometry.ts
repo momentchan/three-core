@@ -7,6 +7,71 @@ export type SetupVATGeometryOptions = {
    * Default: true
    */
   flipX?: boolean
+  /**
+   * Assign stem/flower part colors when COLOR_0 is missing from the GLB.
+   * Flower = red (1,0,0), stem = black (0,0,0) by default.
+   */
+  partColors?: VatPartColorOptions | false
+}
+
+export type VatPartColorOptions = {
+  /** Rest-pose Y threshold: vertices at or below this are stem. */
+  stemYMax?: number
+  flowerColor?: [number, number, number]
+  stemColor?: [number, number, number]
+}
+
+const DEFAULT_FLOWER_COLOR: [number, number, number] = [1, 0, 0]
+const DEFAULT_STEM_COLOR: [number, number, number] = [0, 0, 0]
+
+function hasFlowerTaggedVertices(colorAttr: THREE.BufferAttribute): boolean {
+  for (let i = 0; i < colorAttr.count; i++) {
+    if (colorAttr.getX(i) > 0.5) {
+      return true
+    }
+  }
+  return false
+}
+
+/** Ensure COLOR_0 exists for flower/stem shader branching. */
+export function setupVatPartColors(
+  geometry: THREE.BufferGeometry,
+  options: VatPartColorOptions = {},
+): 'vertex' | 'yThreshold' {
+  const {
+    stemYMax = 0.05,
+    flowerColor = DEFAULT_FLOWER_COLOR,
+    stemColor = DEFAULT_STEM_COLOR,
+  } = options
+
+  const colorAttr = geometry.getAttribute('color')
+  if (colorAttr && hasFlowerTaggedVertices(colorAttr as THREE.BufferAttribute)) {
+    return 'vertex'
+  }
+
+  if (colorAttr && !hasFlowerTaggedVertices(colorAttr as THREE.BufferAttribute)) {
+    console.warn(
+      '[VAT] COLOR_0 is present but no flower vertices (r > 0.5). Using Y-threshold fallback.',
+    )
+  } else {
+    console.warn(
+      `[VAT] COLOR_0 missing from GLB — using Y <= ${stemYMax} as stem. Re-export with vertex colors.`,
+    )
+  }
+
+  const position = geometry.getAttribute('position')
+  const colors = new Float32Array(position.count * 3)
+
+  for (let i = 0; i < position.count; i++) {
+    const isStem = position.getY(i) <= stemYMax
+    const color = isStem ? stemColor : flowerColor
+    colors[i * 3 + 0] = color[0]
+    colors[i * 3 + 1] = color[1]
+    colors[i * 3 + 2] = color[2]
+  }
+
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+  return 'yThreshold'
 }
 
 /**
@@ -48,6 +113,10 @@ export function setupVATGeometry(
     }
     geometry.setAttribute('position', new THREE.BufferAttribute(positionArray, 3))
   }
+
+  if (options.partColors !== false) {
+    setupVatPartColors(geometry, options.partColors ?? {})
+  }
 }
 
 /**
@@ -69,7 +138,15 @@ export function calculateVATFrame(
 }
 
 /** Extract the first mesh geometry from a THREE.Group/Scene. */
-export function extractGeometryFromScene(scene: THREE.Group): THREE.BufferGeometry | null {
+export function extractGeometryFromScene(
+  scene: THREE.Group,
+  meta?: VATMeta,
+  options: SetupVATGeometryOptions = {}
+): THREE.BufferGeometry | null {
+  if (meta) {
+    return extractMeshGeometriesFromScene(scene, meta, options)[0]?.geometry ?? null
+  }
+
   let geometry: THREE.BufferGeometry | null = null
 
   scene.traverse((object: any) => {
@@ -79,4 +156,31 @@ export function extractGeometryFromScene(scene: THREE.Group): THREE.BufferGeomet
   })
 
   return geometry
+}
+
+export type VATMeshPart = {
+  name: string
+  geometry: THREE.BufferGeometry
+}
+
+/** Extract all mesh geometries from a VAT GLB scene and set up UV1 for sampling. */
+export function extractMeshGeometriesFromScene(
+  scene: THREE.Group,
+  meta: VATMeta,
+  options: SetupVATGeometryOptions = {}
+): VATMeshPart[] {
+  const parts: VATMeshPart[] = []
+
+  scene.traverse((object: any) => {
+    if (object.isMesh && object.geometry) {
+      const geometry = object.geometry.clone()
+      setupVATGeometry(geometry, meta, options)
+      parts.push({
+        name: object.name || `mesh_${parts.length}`,
+        geometry,
+      })
+    }
+  })
+
+  return parts
 }

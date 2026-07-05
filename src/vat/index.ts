@@ -9,10 +9,12 @@ export { drawIndirectStructure } from './structures'
 
 export {
   setupVATGeometry,
+  setupVatPartColors,
   calculateVATFrame,
   extractGeometryFromScene,
+  extractMeshGeometriesFromScene,
 } from './geometry'
-export type { SetupVATGeometryOptions } from './geometry'
+export type { SetupVATGeometryOptions, VATMeshPart, VatPartColorOptions } from './geometry'
 
 export {
   preloadVATAssets,
