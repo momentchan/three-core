@@ -26,6 +26,7 @@ export {
   sampleVATPosition,
   sampleVATNormal,
   sampleVATNormalVarying,
+  sampleVATNormalFrameBlended,
 } from './tsl'
 
 export {

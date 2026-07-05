@@ -2,6 +2,9 @@ import * as THREE from 'three/webgpu'
 import {
   abs,
   float,
+  floor,
+  fract,
+  min,
   mix,
   normalize,
   sign,
@@ -69,4 +72,38 @@ export function sampleVATNormalVarying(
   compressNormal = true
 ) {
   return varying(sampleVATNormal(nrmTex, sampleUV, compressNormal))
+}
+
+/**
+ * Sample the VAT normal with frame-safe interpolation.
+ *
+ * A fractional frame UV lets the hardware linear filter blend the *encoded*
+ * texels of two adjacent frames. Oct-encoded normals are not linear (the
+ * encoding has sign-flip seams), so that blend produces bogus normals on
+ * some vertices for in-between frames, which reads as color flicker.
+ *
+ * This samples both neighboring frames at exact texel centers, decodes
+ * each normal, and then blends the decoded vectors. Returns a varying
+ * with the interpolated local-space normal.
+ */
+export function sampleVATNormalFrameBlended(
+  nrmTex: THREE.Texture,
+  frame: any,
+  meta: VATMeta,
+  compressNormal = true
+) {
+  const uFrames = uniform(meta.frameCount)
+  const frameIndex = uFrames.sub(float(1.0)).mul(frame)
+  const frameA = floor(frameIndex)
+  const frameB = min(frameA.add(float(1.0)), uFrames.sub(float(1.0)))
+  const blend = fract(frameIndex)
+
+  const texelStep = 1.0 / meta.textureWidth
+  const uvA = vec2(uv(1).x.add(frameA.mul(texelStep)), uv(1).y)
+  const uvB = vec2(uv(1).x.add(frameB.mul(texelStep)), uv(1).y)
+
+  const normalA = decodeVatNormal(texture(nrmTex, uvA), compressNormal)
+  const normalB = decodeVatNormal(texture(nrmTex, uvB), compressNormal)
+
+  return varying(normalize(mix(normalA, normalB, blend)))
 }
