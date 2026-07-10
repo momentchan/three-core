@@ -27,19 +27,33 @@ function sourceToImage(source: TextureSource): Promise<HTMLImageElement | ImageB
   return Promise.reject(new TypeError('Unsupported texture source'))
 }
 
+type FitMode = 'contain' | 'stretch'
+
 export class SpriteTextureArray {
   width: number
   height: number
   maxLayers: number
   layerCount: number
+  fit: FitMode
   texture: THREE.DataArrayTexture
   private canvas: HTMLCanvasElement
   private ctx: CanvasRenderingContext2D
 
-  constructor({ width, height, maxLayers }: { width: number; height: number; maxLayers: number }) {
+  constructor({
+    width,
+    height,
+    maxLayers,
+    fit = 'contain',
+  }: {
+    width: number
+    height: number
+    maxLayers: number
+    fit?: FitMode
+  }) {
     this.width = width
     this.height = height
     this.maxLayers = maxLayers
+    this.fit = fit
     this.layerCount = 0
 
     const data = new Uint8Array(width * height * 4 * maxLayers)
@@ -72,7 +86,24 @@ export class SpriteTextureArray {
     const layer = this.layerCount
 
     this.ctx.clearRect(0, 0, this.width, this.height)
-    this.ctx.drawImage(image as CanvasImageSource, 0, 0, this.width, this.height)
+
+    if (this.fit === 'stretch') {
+      // Fill the whole layer, distorting aspect ratio if needed.
+      this.ctx.drawImage(image as CanvasImageSource, 0, 0, this.width, this.height)
+    } else {
+      // Fit the source into the layer without distorting its aspect ratio
+      // ("contain"): scale to fit, then center. Sources that already match the
+      // layer aspect (e.g. the square reference art) draw 1:1; landscape/portrait
+      // scans get transparent padding instead of being stretched.
+      const srcWidth = 'width' in image ? image.width : this.width
+      const srcHeight = 'height' in image ? image.height : this.height
+      const scale = Math.min(this.width / srcWidth, this.height / srcHeight)
+      const drawWidth = srcWidth * scale
+      const drawHeight = srcHeight * scale
+      const dx = (this.width - drawWidth) / 2
+      const dy = (this.height - drawHeight) / 2
+      this.ctx.drawImage(image as CanvasImageSource, dx, dy, drawWidth, drawHeight)
+    }
 
     const pixels = this.ctx.getImageData(0, 0, this.width, this.height).data
     const offset = layer * this.width * this.height * 4
