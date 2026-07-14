@@ -14,7 +14,28 @@ export const MAX_INSTANCES = MAX_HANDS * POINTS_PER_HAND;
 
 export type HandLandmark = { x: number; y: number; z: number };
 
-export type HandTrackingSource = 'none' | 'mediapipe' | 'yolo';
+export type HandTrackingSource = 'none' | 'mediapipe' | 'yolo' | 'leap';
+
+// Rich native Leap Motion state per hand, aligned by slot index with
+// handStore.hands. Available for grab/pinch-driven features; positions are
+// normalized to [0,1] image space (top-left origin), matching handStore.hands.
+export type LeapHandState = {
+
+  type: 'left' | 'right';
+
+  grabStrength: number;
+
+  pinchStrength: number;
+
+  pinchDistance: number;
+
+  palm: HandLandmark;
+
+  angles: { roll: number; pitch: number; yaw: number };
+
+  extended: boolean[];
+
+};
 
 
 
@@ -86,6 +107,8 @@ export const handStore = {
 
   yolo: null as YoloHandState | null,
 
+  leap: null as LeapHandState[] | null,
+
   video: null as HTMLVideoElement | null,
 
   videoWidth: 640,
@@ -102,6 +125,30 @@ export function clearHandStore(): void {
   handStore.source = 'none';
 
   handStore.hands = [];
+
+  handStore.mediapipe = null;
+
+  handStore.yolo = null;
+
+  handStore.leap = null;
+
+}
+
+
+
+export function applyLeapHandsToStore(
+
+  hands: HandLandmark[][],
+
+  leap: LeapHandState[],
+
+): void {
+
+  handStore.source = 'leap';
+
+  handStore.hands = hands;
+
+  handStore.leap = leap;
 
   handStore.mediapipe = null;
 
@@ -133,6 +180,8 @@ export function applyMediaPipeHandsToStore(
 
   handStore.yolo = null;
 
+  handStore.leap = null;
+
 }
 
 
@@ -144,6 +193,8 @@ export function applyYoloHandsToStore(hands: HandLandmark[][]): void {
   handStore.hands = hands;
 
   handStore.mediapipe = null;
+
+  handStore.leap = null;
 
 }
 
@@ -166,6 +217,8 @@ export function applyYoloTrackedHandsToStore(
   handStore.hands = hands;
 
   handStore.mediapipe = null;
+
+  handStore.leap = null;
 
   handStore.videoWidth = frame.frameWidth;
 

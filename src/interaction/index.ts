@@ -11,3 +11,6 @@ export * from './yolo/adapter';
 export * from './yolo/useYoloHandTracking';
 export * from './useCanvasPointerActive';
 export * from './yolo/YoloHandTracking';
+export * from './leap/leapMapping';
+export * from './leap/useLeapHandTracking';
+export * from './leap/LeapHandTracking';
