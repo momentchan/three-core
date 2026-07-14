@@ -12,6 +12,9 @@ export * from './components/visuals/DistortedCircle';
 export * from './hooks/useUploadQueue';
 export * from './hooks/useDeviceDetection';
 export * from './hooks/useKTX2Texture';
+export * from './hooks/useWaterSound';
+
+export * from './audio/WaterSoundEngine';
 
 export * from './input/InputSystem';
 

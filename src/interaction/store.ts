@@ -6,7 +6,7 @@ import { instancedArray } from "three/tsl";
 
 export const MAX_HANDS = 10;
 
-export const POINTS_PER_HAND = 1; // use index 9
+export const POINTS_PER_HAND = 5; // one interaction point per fingertip
 
 export const MAX_INSTANCES = MAX_HANDS * POINTS_PER_HAND;
 
