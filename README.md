@@ -33,3 +33,8 @@ git submodule add [https://github.com/momentchan/three-core.git](https://github.
 
 ### 5. TSL Utilities
 * **`math` & `color`**: Helper functions for **Three Shading Language (TSL)** to write GPU logic in JavaScript.
+
+### 6. Utilities
+* **`stableRandom01` / `stableRandomRange`**: Deterministic, hash-based (sin-fract) PRNG for stable procedural layouts that survive re-renders and reloads.
+* **`base64ToBlob` / `fileToBase64` / `blobToBase64`**: Generic image/blob conversion helpers for working with image data URLs and binary blobs.
+* **`getHandOpenState` / `getHandSign`**: MediaPipe 21-point gesture classification (open hand / fist) with Leap Motion native grab-strength + hysteresis fallback. Exported from `@core/interaction`.

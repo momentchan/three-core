@@ -1,4 +1,5 @@
 export * from './store';
+export * from './shared/handGesture';
 export * from './shared/smoothing';
 export * from './shared/handTracker';
 export * from './shared/interactionPoints';

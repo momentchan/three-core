@@ -18,7 +18,9 @@ export * from './audio/WaterSoundEngine';
 
 export * from './input/InputSystem';
 
+export * from './utils/imageConversion';
 export * from './utils/KTX2Preloader';
+export * from './utils/random';
 export * from './utils/SpriteTextureArray';
 export * from './utils/tsl/math';
 export * from './utils/tsl/color';

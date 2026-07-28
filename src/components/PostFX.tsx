@@ -1,8 +1,8 @@
 import { useFrame, useThree } from '@react-three/fiber'
 import { useControls, folder } from 'leva'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import type { Node } from 'three/webgpu'
-import { pass, renderOutput, uniform, vec3, dot, mix } from 'three/tsl'
+import { pass, renderOutput } from 'three/tsl'
 import {
   ACESFilmicToneMapping,
   NoToneMapping,
@@ -21,13 +21,7 @@ type PostFXControls = {
   smaaEnabled: boolean
   toneMappingEnabled: boolean
   exposure: number
-  colorGradeEnabled: boolean
-  brightness: number
-  contrast: number
-  saturation: number
 }
-
-const LUMA = vec3(0.2126, 0.7152, 0.0722)
 
 export type PostFXDefaults = Partial<PostFXControls>
 
@@ -41,26 +35,12 @@ const BASE_DEFAULTS: PostFXControls = {
   smaaEnabled: true,
   toneMappingEnabled: true,
   exposure: 0.5,
-  colorGradeEnabled: true,
-  brightness: 1,
-  contrast: 1,
-  saturation: 1,
 }
 
 function WebGPUPostFX({ ctrl }: { ctrl: PostFXControls }) {
   const { gl, scene, camera } = useThree()
   const postProcessingRef = useRef<PostProcessing | null>(null)
   const bloomPassRef = useRef<ReturnType<typeof bloom> | null>(null)
-
-  // Live-updating uniforms for the screenspace color grade (identity defaults).
-  const grade = useMemo(
-    () => ({
-      brightness: uniform(1),
-      contrast: uniform(1),
-      saturation: uniform(1),
-    }),
-    [],
-  )
 
   useEffect(() => {
     const scenePass = pass(scene, camera)
@@ -80,14 +60,6 @@ function WebGPUPostFX({ ctrl }: { ctrl: PostFXControls }) {
       outputNode = sceneColor.add(bloomPass)
     } else {
       bloomPassRef.current = null
-    }
-
-    // Screenspace color grade: brightness -> contrast -> saturation.
-    if (ctrl.colorGradeEnabled) {
-      const bright = outputNode.mul(grade.brightness)
-      const contrasted = bright.sub(0.5).mul(grade.contrast).add(0.5)
-      const luma = dot(contrasted, LUMA)
-      outputNode = mix(vec3(luma), contrasted, grade.saturation)
     }
 
     if (ctrl.smaaEnabled) {
@@ -112,11 +84,9 @@ function WebGPUPostFX({ ctrl }: { ctrl: PostFXControls }) {
     gl,
     scene,
     camera,
-    grade,
     ctrl.bloomEnabled,
     ctrl.smaaEnabled,
     ctrl.toneMappingEnabled,
-    ctrl.colorGradeEnabled,
   ])
 
   useFrame(() => {
@@ -124,10 +94,6 @@ function WebGPUPostFX({ ctrl }: { ctrl: PostFXControls }) {
       ? ACESFilmicToneMapping
       : NoToneMapping
     gl.toneMappingExposure = ctrl.exposure
-
-    grade.brightness.value = ctrl.brightness
-    grade.contrast.value = ctrl.contrast
-    grade.saturation.value = ctrl.saturation
 
     const bloomPass = bloomPassRef.current
     if (bloomPass) {
@@ -160,12 +126,6 @@ export function PostFX({ defaults }: { defaults?: PostFXDefaults } = {}) {
     toneMapping: folder({
       toneMappingEnabled: { value: d.toneMappingEnabled },
       exposure: { value: d.exposure, min: 0, max: 4, step: 0.01 },
-    }, { collapsed: true }),
-    colorGrade: folder({
-      colorGradeEnabled: { value: d.colorGradeEnabled, label: 'Enabled' },
-      brightness: { value: d.brightness, min: 0, max: 2, step: 0.01 },
-      contrast: { value: d.contrast, min: 0, max: 2, step: 0.01 },
-      saturation: { value: d.saturation, min: 0, max: 2, step: 0.01 },
     }, { collapsed: true }),
   })
 
