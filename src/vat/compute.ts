@@ -33,8 +33,14 @@ export type VATLODRoutingBuffer = {
 }
 
 /**
- * Build a distance-based LOD routing function for use inside a compute Fn.
- * Assigns each instance into exactly one LOD visible-indices buffer.
+ * Assign each instance into exactly one LOD visible-indices buffer.
+ *
+ * false-earth Rose uses If/Else with exclusive min/max windows. The original
+ * helper pre-built the next `If()` *outside* the Else callback; TSL records
+ * nodes at construction time, so that inner If became a sibling of the outer
+ * one and both bands could fire for the same instance (drawn > active, hi/low
+ * z-fight). Independent Ifs with the same exclusive windows keep Rose's
+ * routing rules without that graph bug.
  */
 export function createLODRouting(lodBuffers: VATLODRoutingBuffer[]) {
   return (distToCamera: any, instanceIdx: any) => {
@@ -50,18 +56,20 @@ export function createLODRouting(lodBuffers: VATLODRoutingBuffer[]) {
       return
     }
 
-    // Exclusive split: [0, split) -> lod 0, [split, inf) -> lod 1.
-    // A chained If/ElseIf used to emit both bands on some mobile WGSL paths,
-    // so one flower was drawn twice (drawn > active) and popped hi/low.
-    const split = float(
-      lodBuffers[0].maxDistance === Infinity
-        ? 1e9
-        : lodBuffers[0].maxDistance,
-    )
-    If(distToCamera.lessThan(split), () => {
-      push(lodBuffers[0])
-    }).Else(() => {
-      push(lodBuffers[lodBuffers.length - 1])
-    })
+    for (let i = 0; i < lodBuffers.length; i += 1) {
+      const config = lodBuffers[i]
+      const isLast = i === lodBuffers.length - 1
+      const minDist = float(config.minDistance)
+      const maxDist =
+        config.maxDistance === Infinity ? float(1e9) : float(config.maxDistance)
+      const inRange = distToCamera.greaterThanEqual(minDist).and(
+        isLast || config.maxDistance === Infinity
+          ? distToCamera.lessThanEqual(maxDist)
+          : distToCamera.lessThan(maxDist),
+      )
+      If(inRange, () => {
+        push(config)
+      })
+    }
   }
 }
