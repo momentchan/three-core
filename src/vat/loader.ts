@@ -49,7 +49,7 @@ export const preloadVATAssets = (metaUrl: string): Promise<VATData> => {
       const loadTex = async (path: string) => {
         const isEXR = path.toLowerCase().endsWith('exr')
         const l = isEXR
-          ? new EXRLoader().setDataType(THREE.FloatType)
+          ? new EXRLoader().setDataType(THREE.HalfFloatType)
           : new THREE.TextureLoader()
         return await l.loadAsync(path)
       }

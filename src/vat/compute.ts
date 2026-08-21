@@ -34,51 +34,34 @@ export type VATLODRoutingBuffer = {
 
 /**
  * Build a distance-based LOD routing function for use inside a compute Fn.
- * Assigns instances into the matching LOD's visible-indices buffer.
+ * Assigns each instance into exactly one LOD visible-indices buffer.
  */
 export function createLODRouting(lodBuffers: VATLODRoutingBuffer[]) {
   return (distToCamera: any, instanceIdx: any) => {
     if (lodBuffers.length === 0) return
 
-    if (lodBuffers.length === 1) {
-      const config = lodBuffers[0]
+    const push = (config: VATLODRoutingBuffer) => {
       const lodIndex = atomicAdd(config.drawStorage.get('instanceCount'), uint(1))
       config.indices.element(lodIndex).assign(uint(instanceIdx))
+    }
+
+    if (lodBuffers.length === 1) {
+      push(lodBuffers[0])
       return
     }
 
-    const buildChain = (index: number): any => {
-      if (index >= lodBuffers.length) return
-
-      const config = lodBuffers[index]
-      const isLast = index === lodBuffers.length - 1
-
-      const minDist = float(config.minDistance)
-      const maxDist =
-        config.maxDistance === Infinity ? float(1e9) : float(config.maxDistance)
-
-      const inRange = distToCamera.greaterThanEqual(minDist).and(
-        isLast || config.maxDistance === Infinity
-          ? distToCamera.lessThanEqual(maxDist)
-          : distToCamera.lessThan(maxDist)
-      )
-
-      const lodBlock = () => {
-        const lodIndex = atomicAdd(config.drawStorage.get('instanceCount'), uint(1))
-        config.indices.element(lodIndex).assign(uint(instanceIdx))
-      }
-
-      if (isLast) {
-        return If(inRange, lodBlock)
-      }
-
-      const nextChain = buildChain(index + 1)
-      return If(inRange, lodBlock).Else(() => {
-        if (nextChain) nextChain
-      })
-    }
-
-    const chain = buildChain(0)
-    if (chain) chain
+    // Exclusive split: [0, split) -> lod 0, [split, inf) -> lod 1.
+    // A chained If/ElseIf used to emit both bands on some mobile WGSL paths,
+    // so one flower was drawn twice (drawn > active) and popped hi/low.
+    const split = float(
+      lodBuffers[0].maxDistance === Infinity
+        ? 1e9
+        : lodBuffers[0].maxDistance,
+    )
+    If(distToCamera.lessThan(split), () => {
+      push(lodBuffers[0])
+    }).Else(() => {
+      push(lodBuffers[lodBuffers.length - 1])
+    })
   }
 }
