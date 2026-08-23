@@ -34,7 +34,6 @@ export function WebGPUCanvas({
         style={{ width: '100%', height: '100%', pointerEvents: 'auto' }}
         dpr={dpr}
         gl={(canvas) => {
-          // Initialize WebGPU renderer with core optimizations
           const renderer = new WebGPURenderer({
             ...canvas as any,
             powerPreference: "high-performance",
@@ -43,8 +42,6 @@ export function WebGPUCanvas({
             depth: depth,
             stencil: false,
           });
-
-          // Fiber expects the renderer to be returned, WebGPU requires async init
           return renderer.init().then(() => renderer);
         }}
       >

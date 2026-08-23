@@ -12,10 +12,11 @@ import {
 interface DistortedCircleProps {
   radius?: number;
   segments?: number;
-  color?: string;
+  color?: string | THREE.Color;
   distortionStrength?: number; // 0 to 1
   seed?: number;
   lineWidth?: number;
+  blending?: THREE.Blending;
 }
 
 export function DistortedCircle({
@@ -25,13 +26,14 @@ export function DistortedCircle({
   distortionStrength = 0,
   seed = 0,
   lineWidth = 5,
+  blending = THREE.AdditiveBlending,
 }: DistortedCircleProps) {
   const meshRef = useRef<THREE.Mesh>(null);
 
   // Uniforms
   const uStrength = useMemo(() => uniform(0), []); // Start at 0
   const uSeed = useMemo(() => uniform(seed), [seed]);
-  const uColor = useMemo(() => uniform(new THREE.Color(color)), [color]);
+  const uColor = useMemo(() => uniform(new THREE.Color('#655d52')), []);
 
   const geometry = useMemo(() => {
     const curve = new THREE.EllipseCurve(0, 0, radius, radius, 0, 2 * Math.PI, false, 0);
@@ -74,12 +76,16 @@ export function DistortedCircle({
       colorNode: uColor,
       positionNode: vertexNode(),
       transparent: true,
-      blending: THREE.AdditiveBlending,
+      blending,
     });
-  }, [radius, uColor, uSeed, uStrength]);
+  }, [radius, uColor, uSeed, uStrength, blending]);
 
   useFrame(() => {
-    // Smoothly interpolate strength based on prop (replaces GSAP)
+    if (color && (color as THREE.Color).isColor) {
+      uColor.value.copy(color as THREE.Color);
+    } else if (typeof color === 'string') {
+      uColor.value.set(color);
+    }
     uStrength.value = THREE.MathUtils.lerp(uStrength.value, distortionStrength, 0.1);
   });
 
