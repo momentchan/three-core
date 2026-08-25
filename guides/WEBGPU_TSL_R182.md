@@ -109,9 +109,8 @@ For LOD routing or compaction:
 - test boundary distances
 - name compute nodes for GPU diagnostics
 
-Use `three-core/src/vat/compute.ts` as the corrected shared LOD-routing
-reference. Do not copy older recursive routing implementations from consuming
-projects.
+`three-core/src/vat/compute.ts` is the shared LOD-routing reference. It records
+each branch in its intended callback scope and routes an instance at most once.
 
 ## Textures and color data
 
@@ -193,9 +192,8 @@ still execute. Bypass or rebuild the pass when profiling shows the cost matters.
 Keep tone mapping and output color transformation explicit, especially across
 multi-pass or multi-scene composition.
 
-`PostProcessing` is renamed and deprecated in favor of `RenderPipeline` in
-Three r183+. Recheck constructor, output transform, and disposal APIs during an
-upgrade instead of applying this section unchanged.
+For Three r183+, use `RenderPipeline` and verify its constructor, output
+transform, and disposal APIs. This `PostProcessing` section applies to r182.
 
 ## Compilation and upload readiness
 
@@ -209,8 +207,8 @@ Any compile/upload coordinator must:
 - avoid undocumented capability casts
 - distinguish shader compilation from asset upload readiness
 
-Do not copy a project upload queue into shared guidance until its readiness
-contract is measurable.
+Treat upload readiness as unverified unless the coordinator exposes a measurable
+completion contract.
 
 ## Review checklist
 

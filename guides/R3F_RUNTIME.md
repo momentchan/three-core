@@ -164,6 +164,24 @@ the distinction is otherwise ambiguous.
 
 Domain naming policy belongs to the consuming project, not this shared guide.
 
+## Comments
+
+Comments must explain current behavior that is not obvious from the code:
+
+- why a constraint exists
+- which invariant must remain true
+- who owns a resource
+- which coordinate space, unit, lifecycle stage, or compatibility condition
+  applies
+
+Do not write comments that narrate an edit, such as "changed from", "old
+implementation", "now uses", or "fixed after refactor". Git history records
+changes; source comments describe the code that exists.
+
+Delete comments that only restate the next line. For compatibility workarounds,
+state the currently affected platform/version, the required behavior, and a
+removal condition when known.
+
 ## Review checklist
 
 Before finishing R3F runtime work:
